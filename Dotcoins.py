@@ -208,10 +208,14 @@ def get_user_info(apikey, authorization):
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome 125.0.0.0 Safari/537.36',
         'x-client-info': 'postgrest-js/1.9.2'
     }
-    data = {}
-    response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.post(url, headers=headers, json={})
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print(f"Error saat mendapatkan user info: {e}")
+        return None
+
 
 def auto_upgrade_daily_attempt():
     user_input = input("Auto upgrade daily attempt? (y/n): ")
@@ -318,56 +322,54 @@ def main():
     while True:  # Loop eksternal yang membuat program berjalan terus menerus
         for index, authorization in enumerate(credentials):
             info = get_user_info(apikey, authorization)
-            print(f"{Fore.CYAN+Style.BRIGHT}============== [ Akun {index} | {info['first_name']} ] ==============")
-
-            if not upgrade_success.get(authorization, False):  # Cek jika belum sukses upgrade
-                if jumlah_upgrade > 0:  # Memeriksa jika jumlah_upgrade lebih dari 0
-                    for _ in range(jumlah_upgrade):
-                        current_level = info['daily_attempts']
-                        success = add_attempts(0, apikey, authorization, current_level)
-                        if success:
-                            upgrade_success[authorization] = True  # Simpan status upgrade berhasil
-                            print(f"{Fore.GREEN+Style.BRIGHT}\r[ Upgrade ] : Sukses                           ", flush=True)
-                            break
-                        else:
-                            print(f"{Fore.RED+Style.BRIGHT}\r[ Upgrade ] : Gagal                          ", flush=True)
-            
-            if info:
-                if clear_task == 'y':
-                    auto_clear_task(apikey, authorization)
-                print(f"{Fore.YELLOW+Style.BRIGHT}[ Level ] : {info['level']}")
-                print(f"{Fore.YELLOW+Style.BRIGHT}[ Saldo ] : {info['balance']}")
-                print(f"{Fore.BLUE+Style.BRIGHT}[ Energi ] : {info['daily_attempts']}")
-                print(f"{Fore.BLUE+Style.BRIGHT}[ Limit Energi ] : {info['limit_attempts']}")
-                print(f"{Fore.BLUE+Style.BRIGHT}[ Multiple Click Level ] : {info['multiple_clicks']}")
-                auto_gacha(apikey, authorization, 150000)
-                energy = info['daily_attempts']
-                while energy > 0:
-                    for _ in range(energy):
-                        print(f"{Fore.BLUE+Style.BRIGHT}\r[ Tap ] : Tapping..", end="" , flush=True)
-                        time.sleep(3)
-                        save_coins(20000, apikey, authorization)
-                        print(f"{Fore.GREEN+Style.BRIGHT}\r[ Tap ] : Sukses             ", flush=True)
-                    info = get_user_info(apikey, authorization)
+            if info is not None:  # Tambahkan pengecekan ini
+                print(f"{Fore.CYAN+Style.BRIGHT}============== [ Akun {index} | {info['first_name']} ] ==============")
+                
+                if not upgrade_success.get(authorization, False):  # Cek jika belum sukses upgrade
+                    if jumlah_upgrade > 0:  # Memeriksa jika jumlah_upgrade lebih dari 0
+                        for _ in range(jumlah_upgrade):
+                            current_level = info['daily_attempts']
+                            success = add_attempts(0, apikey, authorization, current_level)
+                            if success:
+                                upgrade_success[authorization] = True  # Simpan status upgrade berhasil
+                                print(f"{Fore.GREEN+Style.BRIGHT}\r[ Upgrade ] : Sukses                           ", flush=True)
+                                break
+                            else:
+                                print(f"{Fore.RED+Style.BRIGHT}\r[ Upgrade ] : Gagal                          ", flush=True)
+                
+                if info:
+                    if clear_task == 'y':
+                        auto_clear_task(apikey, authorization)
+                    print(f"{Fore.YELLOW+Style.BRIGHT}[ Level ] : {info['level']}")
+                    print(f"{Fore.YELLOW+Style.BRIGHT}[ Saldo ] : {info['balance']}")
+                    print(f"{Fore.BLUE+Style.BRIGHT}[ Energi ] : {info['daily_attempts']}")
+                    print(f"{Fore.BLUE+Style.BRIGHT}[ Limit Energi ] : {info['limit_attempts']}")
+                    print(f"{Fore.BLUE+Style.BRIGHT}[ Multiple Click Level ] : {info['multiple_clicks']}")
+                    auto_gacha(apikey, authorization, 150000)
                     energy = info['daily_attempts']
-                    if energy == 0:
-                        restore_attempts(apikey, authorization)
+                    while energy > 0:
+                        for _ in range(energy):
+                            print(f"{Fore.BLUE+Style.BRIGHT}\r[ Tap ] : Tapping..", end="" , flush=True)
+                            time.sleep(3)
+                            save_coins(20000, apikey, authorization)
+                            print(f"{Fore.GREEN+Style.BRIGHT}\r[ Tap ] : Sukses             ", flush=True)
                         info = get_user_info(apikey, authorization)
                         energy = info['daily_attempts']
-                else:
-                    print(f"{Fore.RED+Style.BRIGHT}Energi Anda habis. Menunggu pengisian ulang energi...")
-                    if energy == 0:
-                        restore_attempts(apikey, authorization)
-                        info = get_user_info(apikey, authorization)
-                        energy = info['daily_attempts']
+                        if energy == 0:
+                            restore_attempts(apikey, authorization)
+                            info = get_user_info(apikey, authorization)
+                            energy = info['daily_attempts']
+                    else:
+                        print(f"{Fore.RED+Style.BRIGHT}Energi Anda habis. Menunggu pengisian ulang energi...")
+                        if energy == 0:
+                            restore_attempts(apikey, authorization)
+                            info = get_user_info(apikey, authorization)
+                            energy = info['daily_attempts']
 
-                if auto_upgrade_dtc == 'y':
-                    upgrade_dtc_miner(apikey, authorization)
-
-     
-
+                    if auto_upgrade_dtc == 'y':
+                        upgrade_dtc_miner(apikey, authorization)
             else:
-                print("\r{Fore.RED+Style.BRIGHT}Token akses tidak valid, lanjut ke akun berikutnya.")
+                print(f"{Fore.RED+Style.BRIGHT}Token akses tidak valid atau gagal mendapatkan info pengguna, lanjut ke akun berikutnya.")
         time.sleep(2)
         # Hitung mundur selama 30 detik setelah semua akun telah diproses
         print(f"{Fore.CYAN+Style.BRIGHT}==============Semua akun telah diproses=================")
@@ -382,3 +384,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
